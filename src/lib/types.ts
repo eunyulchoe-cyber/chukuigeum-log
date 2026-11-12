@@ -48,5 +48,4 @@ export type BackupFile = {
 };
 
 export const DEFAULT_AMOUNTS = [50000, 100000, 200000, 300000, 500000];
-export const DEFAULT_RELATIONS = ["친구", "회사", "친척", "신랑측", "신부측", "기타"];
 export const RECENT_LIMIT = 5;

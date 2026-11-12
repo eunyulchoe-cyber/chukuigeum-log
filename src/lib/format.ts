@@ -41,26 +41,5 @@ export function formatClock(sec: number): string {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-export function honorificName(eventName: string): string {
-  return eventName.replace(/\s*(결혼식|돌잔치|칠순|잔치|장례식|장례|별세).*$/u, "").trim() || eventName;
-}
-
-export function guestPrompt(type: string, eventName: string): string {
-  const who = honorificName(eventName);
-  if (type === "결혼") return `${who}님 결혼을 축하하는 영상을 남겨주세요`;
-  if (type === "돌") return `${who} 돌잔치를 축하하는 영상을 남겨주세요`;
-  if (type === "칠순") return `${who}님 칠순을 축하하는 영상을 남겨주세요`;
-  if (type === "부의") return `고인을 기리는 마음을 영상으로 남겨 주세요`;
-  return `${who}님께 전하는 영상을 남겨주세요`;
-}
-
-
-export function eventMonogram(name?: string | null): string {
-  if (!name) return "축";
-  const skip = /^(결혼식|돌잔치|칠순|팔순|잔치|부의|장례|행사)$/;
-  const parts = name
-    .split(/[·•,/]|와 |과 |\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s && !skip.test(s));
-  return (parts[0] || name).charAt(0) || "축";
-}
+export { honorificName, guestPrompt } from "./copy";
+export { brandMonogram as eventMonogram } from "./copy";

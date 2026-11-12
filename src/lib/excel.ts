@@ -1,14 +1,16 @@
 import * as XLSX from "xlsx";
+import { copyForType } from "./copy";
 import type { EventRecord, GuestRecord } from "./types";
 import { formatDateTime, formatWon } from "./format";
 
 export function buildWorkbook(event: EventRecord, guests: GuestRecord[]): XLSX.WorkBook {
+  const c = copyForType(event.type);
   const rows: (string | number)[][] = [
     ["행사", event.name],
     ["종류", event.type],
     ["날짜", event.date],
     [],
-    ["이름", "관계", "금액", "메모", "접수 시각", "영상편지"],
+    ["이름", "관계", c.excelAmountHeader, "메모", "접수 시각", c.videoShort],
   ];
   for (const g of guests) {
     rows.push([
@@ -28,12 +30,13 @@ export function buildWorkbook(event: EventRecord, guests: GuestRecord[]): XLSX.W
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [{ wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 10 }];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "접수 목록");
+  XLSX.utils.book_append_sheet(wb, ws, c.excelSheet);
   return wb;
 }
 
 export function downloadWorkbook(event: EventRecord, guests: GuestRecord[]): void {
   const wb = buildWorkbook(event, guests);
+  const c = copyForType(event.type);
   const safe = event.name.replace(/[\\/:*?"<>|]+/g, "_").slice(0, 40);
-  XLSX.writeFile(wb, `${safe}_접수목록.xlsx`);
+  XLSX.writeFile(wb, `${safe}_${c.excelFileSuffix}.xlsx`);
 }
