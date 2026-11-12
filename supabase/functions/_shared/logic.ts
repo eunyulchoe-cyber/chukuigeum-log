@@ -69,16 +69,22 @@ export function eventExpiryIso(eventDate: string, timeZone = "Asia/Seoul"): stri
   return next.toISOString();
 }
 
+export const APP_DRIVE_ROOT = "마음장부";
+
 export function sanitizeFolderLabel(raw: string | undefined, fallback: string): string {
   const cleaned = (raw ?? "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim();
   const label = cleaned.slice(0, 80) || fallback;
-  return `축의금 로그 · ${label}`;
+  return label;
+}
+
+export function driveFolderPath(label: string): string {
+  return `${APP_DRIVE_ROOT}/${label}`;
 }
 
 export function fileNameForGuest(guestId: string, mime: string): string {
   const ext = mime.includes("mp4") ? "mp4" : mime.includes("quicktime") ? "mov" : mime.includes("ogg") ? "ogv" : "webm";
   const safe = guestId.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) || "guest";
-  return `영상편지-${safe}.${ext}`;
+  return `영상-${safe}.${ext}`;
 }
 
 export async function sha256Hex(value: string): Promise<string> {

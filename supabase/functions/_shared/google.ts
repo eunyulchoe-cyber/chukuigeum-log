@@ -2,6 +2,8 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const DRIVE_FILES = "https://www.googleapis.com/drive/v3/files";
 const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
+import { APP_DRIVE_ROOT } from "./logic.ts";
+
 export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
 export function googleConfigured(): boolean {
@@ -79,6 +81,47 @@ export async function fetchGoogleEmail(accessToken: string): Promise<string | nu
   return data.email ?? null;
 }
 
+function driveHeaders(accessToken: string): Record<string, string> {
+  return { Authorization: `Bearer ${accessToken}` };
+}
+
+function escapeDriveQuery(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+async function findFolder(accessToken: string, name: string, parentId?: string | null): Promise<string | null> {
+  const clauses = [
+    `name='${escapeDriveQuery(name)}'`,
+    "mimeType='application/vnd.google-apps.folder'",
+    "trashed=false",
+  ];
+  clauses.push(parentId ? `'${escapeDriveQuery(parentId)}' in parents` : "'root' in parents");
+  const url = `${DRIVE_FILES}?q=${encodeURIComponent(clauses.join(" and "))}&fields=files(id)&pageSize=1&spaces=drive`;
+  const res = await fetch(url, { headers: driveHeaders(accessToken) });
+  if (!res.ok) return null;
+  const data = await res.json() as { files?: { id: string }[] };
+  return data.files?.[0]?.id ?? null;
+}
+
+async function createFolder(accessToken: string, name: string, parentId?: string | null): Promise<string> {
+  const body: Record<string, unknown> = {
+    name,
+    mimeType: "application/vnd.google-apps.folder",
+  };
+  if (parentId) body.parents = [parentId];
+  const res = await fetch(`${DRIVE_FILES}?fields=id`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`drive folder create failed (${res.status})`);
+  const data = await res.json() as { id: string };
+  return data.id;
+}
+
 export async function ensureEventFolder(
   accessToken: string,
   label: string,
@@ -86,27 +129,17 @@ export async function ensureEventFolder(
 ): Promise<string> {
   if (existingId) {
     const check = await fetch(`${DRIVE_FILES}/${encodeURIComponent(existingId)}?fields=id,trashed`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: driveHeaders(accessToken),
     });
     if (check.ok) {
       const meta = await check.json() as { id?: string; trashed?: boolean };
       if (meta.id && !meta.trashed) return meta.id;
     }
   }
-  const res = await fetch(`${DRIVE_FILES}?fields=id`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      name: label,
-      mimeType: "application/vnd.google-apps.folder",
-    }),
-  });
-  if (!res.ok) throw new Error(`drive folder create failed (${res.status})`);
-  const data = await res.json() as { id: string };
-  return data.id;
+  const rootId = await findFolder(accessToken, APP_DRIVE_ROOT) ?? await createFolder(accessToken, APP_DRIVE_ROOT);
+  const existing = await findFolder(accessToken, label, rootId);
+  if (existing) return existing;
+  return createFolder(accessToken, label, rootId);
 }
 
 export async function startResumableUpload(opts: {

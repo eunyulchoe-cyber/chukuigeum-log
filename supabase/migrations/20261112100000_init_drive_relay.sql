@@ -1,4 +1,4 @@
--- 축의금 로그: host Drive relay. Guest names and amounts are never stored here.
+-- 마음장부: host Drive relay. Guest names and amounts are never stored here.
 
 create extension if not exists pgcrypto;
 

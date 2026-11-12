@@ -337,7 +337,7 @@ async function uploadInit(req: Request, ip: string): Promise<Response> {
   const { data: tok } = await db.from("upload_tokens").select("*").eq("token_hash", hash).maybeSingle();
   if (!tok) return jsonError("업로드 코드가 올바르지 않거나 만료되었습니다.", 401);
   if (tok.used_at) return jsonError("이 코드는 이미 사용되었습니다. 영상은 손님당 한 번만 올릴 수 있습니다.", 409);
-  if (new Date(tok.expires_at).getTime() < Date.now()) return jsonError("이 링크는 만료되었습니다. 영상편지 QR은 행사 당일에만 유효합니다.", 403);
+  if (new Date(tok.expires_at).getTime() < Date.now()) return jsonError("이 링크는 만료되었습니다. QR은 행사 당일에만 유효합니다.", 403);
   const { data: ev } = await db.from("events").select("*").eq("id", tok.event_id).maybeSingle();
   if (!ev) return jsonError("행사를 찾을 수 없습니다.", 404);
   const event = ev as EventRow;
