@@ -1,13 +1,15 @@
 import { Link } from "react-router-dom";
 import { Atmosphere } from "../components/Atmosphere";
+import { APP_NAME, useAppTone } from "../lib/copy";
 
 export function Privacy() {
+  useAppTone("celebration");
   return (
     <div className="app-shell">
-      <Atmosphere mark="축" />
+      <Atmosphere mark="마" />
       <header className="topbar">
         <div>
-          <div className="kicker">축의금 로그</div>
+          <div className="kicker">{APP_NAME}</div>
           <h1 className="h2">개인정보 처리방침</h1>
         </div>
         <Link to="/" className="btn btn-ghost">홈</Link>
@@ -15,7 +17,7 @@ export function Privacy() {
       <article className="card privacy">
         <p className="muted">시행일: 2026년 11월 12일</p>
         <p>
-          축의금 로그(이하 “서비스”)는 경조사 축의금·부의금 접수와 영상편지를 돕기 위한 웹 앱입니다.
+          마음장부(이하 “서비스”)는 경조사 축의금·부의금 접수와 영상 기록을 돕기 위한 웹 앱입니다.
           이 방침은 서비스를 이용하는 주최자(호스트)와 영상을 남기는 손님에게 적용됩니다.
         </p>
         <h2 className="h3">1. 처리하는 정보</h2>

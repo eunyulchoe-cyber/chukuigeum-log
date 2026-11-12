@@ -42,7 +42,7 @@ export function DriveCallback() {
 
   return (
     <div className="app-shell muted">
-      <Atmosphere mark="축" />
+      <Atmosphere mark="마" />
       구글 드라이브 연결을 확인하고 있습니다…
     </div>
   );

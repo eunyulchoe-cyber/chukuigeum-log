@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Atmosphere } from "../components/Atmosphere";
 import { CamSwitch } from "../components/CamSwitch";
 import { uploadRemoteVideo, serverAvailable } from "../lib/api";
@@ -7,6 +7,7 @@ import { completeGuestUpload, initGuestUpload, putResumable } from "../lib/cloud
 import { cameraErrorMessage, countVideoInputs, openCamera, stopStream, type Facing } from "../lib/camera";
 import { newId } from "../lib/crypto";
 import { getEvent, getGuest, saveVideo } from "../lib/db";
+import { copyFor, parseToneParam, useAppTone } from "../lib/copy";
 import { eventMonogram, formatClock, guestPrompt, todaySeoul } from "../lib/format";
 import type { EventRecord, GuestRecord } from "../lib/types";
 
@@ -19,6 +20,7 @@ function pickMime(): string {
 
 export function GuestUpload() {
   const { eventId = "", guestId = "", token = "" } = useParams();
+  const [search] = useSearchParams();
   const videoRef = useRef<HTMLVideoElement>(null);
   const recRef = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -40,6 +42,11 @@ export function GuestUpload() {
   const [hasServer, setHasServer] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploadToken] = useState(token);
+  const tone = event ? (event.type === "부의" ? "mourning" : "celebration") : parseToneParam(search.get("tone"));
+  const copy = copyFor(tone);
+  const displayName = event?.name || search.get("name") || "";
+  useAppTone(tone);
+
 
   useEffect(() => {
     void (async () => {
@@ -226,16 +233,19 @@ export function GuestUpload() {
     setPhase("review");
   }
 
-  const prompt = event ? guestPrompt(event.type, event.name) : "축하하는 영상을 남겨주세요";
-  const mark = eventMonogram(event?.name);
+  const typeFromQuery = search.get("type") || (tone === "mourning" ? "부의" : "");
+  const prompt = event
+    ? guestPrompt(event.type, event.name)
+    : (displayName ? guestPrompt(typeFromQuery || "기타", displayName) : copy.guestPromptFallback);
+  const mark = eventMonogram(event?.name || displayName, event?.type || typeFromQuery);
 
   if (expired && event) {
     return (
       <div className="phone-page">
         <Atmosphere mark={mark} />
         <div className="kicker">{event.name}</div>
-        <h1 className="guest-msg">이 링크는 행사 당일에만 사용할 수 있습니다</h1>
-        <p className="muted">영상편지 QR은 행사 날짜에만 유효합니다.</p>
+        <h1 className="guest-msg">{copy.guestExpiredTitle}</h1>
+        <p className="muted">{copy.guestExpiredBody}</p>
       </div>
     );
   }
@@ -243,7 +253,7 @@ export function GuestUpload() {
   return (
     <div className="phone-page">
       <Atmosphere mark={mark} />
-      <div className="kicker">{event ? `${event.name} · 오늘만 유효` : "영상편지 · 앱 설치 없음"}</div>
+      <div className="kicker">{copy.guestKicker(event?.name || displayName || null)}</div>
       <h1 className="guest-msg">{prompt}</h1>
       {missing && !hasServer && !uploadToken ? (
         <p className="callout warn">
@@ -251,7 +261,7 @@ export function GuestUpload() {
         </p>
       ) : (
         <p className="muted" style={{ marginTop: 0 }}>
-          앱을 설치하지 않아도 됩니다. 최대 1분까지 촬영할 수 있으며, 영상은 주최자의 구글 드라이브로 보내집니다.
+          {copy.guestLead}
         </p>
       )}
 
@@ -292,7 +302,7 @@ export function GuestUpload() {
           {phase === "sending" ? (
             <div className="upload-progress" aria-live="polite">
               <div className="bar"><i style={{ width: `${progress}%` }} /></div>
-              <p className="muted">{progress < 5 ? "업로드 준비 중…" : `영상을 올리는 중… ${progress}%`}</p>
+              <p className="muted">{copy.sendingVideo(progress)}</p>
             </div>
           ) : null}
           <div className="row" style={{ marginTop: "auto" }}>
@@ -322,8 +332,8 @@ export function GuestUpload() {
 
       {phase === "sent" ? (
         <>
-          <p className="h2" style={{ marginTop: 48 }}>영상을 보냈습니다. 감사합니다.</p>
-          <p className="muted">주최자의 구글 드라이브에 저장되었으며, 접수 기록에 표시됩니다. 이 링크는 행사 당일에만 유효합니다.</p>
+          <p className="h2" style={{ marginTop: 48 }}>{copy.guestSuccessTitle}</p>
+          <p className="muted">{copy.guestSuccessBody}</p>
         </>
       ) : null}
       <p className="faint legal-foot"><a href={`#/privacy`}>개인정보 처리방침</a></p>

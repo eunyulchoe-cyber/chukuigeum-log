@@ -38,7 +38,8 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #root { min-height: 100%; }
+html, body, #root { min-height: 100%; max-width: 100%; }
+html, body { overflow-x: hidden; }
 html {
   background-color: var(--bg);
   background-image: linear-gradient(180deg, #efefec 0%, #f7f7f5 38%, #ffffff 100%);
@@ -360,13 +361,35 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; font-we
 
 .phone-page {
   min-height: 100dvh;
+  min-height: 100svh;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
   background: transparent;
-  padding: calc(28px + var(--safe-t)) 22px calc(22px + var(--safe-b));
+  padding: calc(28px + var(--safe-t)) calc(22px + var(--safe-r)) calc(22px + var(--safe-b)) calc(22px + var(--safe-l));
   display: flex;
   flex-direction: column;
+  align-items: center;
   text-align: center;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
-.guest-msg { font-size: clamp(21px, 5.6vw, 26px); line-height: 1.45; letter-spacing: -0.03em; margin: 8px 0 12px; text-wrap: pretty; }
+.phone-page > *:not(.page-mark) {
+  width: 100%;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+.guest-msg { font-size: clamp(21px, 5.6vw, 26px); line-height: 1.45; letter-spacing: -0.03em; margin: 8px 0 12px; text-wrap: pretty; text-align: center; }
+.phone-page .guest-msg,
+.phone-page .muted,
+.phone-page .kicker,
+.phone-page .legal-foot {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
 .rec-btn {
   width: 96px;
   height: 96px;
@@ -381,6 +404,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; font-we
 .rec-btn.busy i { width: 34px; height: 34px; border-radius: 8px; }
 .preview {
   position: relative;
+  width: 100%;
   height: 220px;
   border-radius: 16px;
   background: var(--preview);
@@ -390,6 +414,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; font-we
   margin: 8px 0 18px;
   overflow: hidden;
 }
+.phone-page .row { width: 100%; justify-content: center; }
 .preview video { width: 100%; height: 100%; object-fit: cover; }
 .preview video.mirror { transform: scaleX(-1); }
 .cam-switch {
@@ -446,7 +471,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; font-we
   max-width: min(90vw, 420px);
 }
 
-@keyframes rise { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes rise { from { transform: translate(-50%, 12px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
@@ -455,7 +480,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; font-we
 @media (max-width: 860px) {
   .recv { grid-template-columns: 1fr; }
   .stats { grid-template-columns: 1fr; }
-  .app-shell { padding: calc(16px + var(--safe-t)) 14px calc(20px + var(--safe-b)); }
+  .app-shell { padding: calc(16px + var(--safe-t)) calc(14px + var(--safe-r)) calc(20px + var(--safe-b)) calc(14px + var(--safe-l)); }
   .input { font-size: 18px; }
 }
 
@@ -479,14 +504,14 @@ body::after {
   z-index: 0;
 }
 body::before {
-  left: 20px;
-  top: 16px;
+  left: calc(20px + var(--safe-l));
+  top: calc(16px + var(--safe-t));
   border-left: 1px solid rgba(17, 17, 17, 0.14);
   border-top: 1px solid rgba(17, 17, 17, 0.14);
 }
 body::after {
-  right: 28px;
-  bottom: 28px;
+  right: calc(20px + var(--safe-r));
+  bottom: calc(20px + var(--safe-b));
   border-right: 1px solid rgba(108, 29, 44, 0.28);
   border-bottom: 1px solid rgba(17, 17, 17, 0.1);
 }
@@ -510,11 +535,13 @@ body::after {
   color: rgba(17, 17, 17, 0.06);
 }
 .phone-page .page-mark {
-  right: 4px;
+  right: max(4px, var(--safe-r));
   top: auto;
   bottom: 132px;
   font-size: 140px;
   color: rgba(17, 17, 17, 0.03);
+  max-width: 42vw;
+  overflow: hidden;
 }
 .app-shell .topbar,
 .app-shell .recv,
@@ -554,3 +581,32 @@ body::after {
 .privacy p, .privacy li { color: var(--ink); line-height: 1.7; }
 .privacy ul { padding-left: 1.2em; margin: 0 0 12px; }
 .privacy code { font-size: 0.86em; background: var(--surface-muted); padding: 1px 5px; border-radius: 4px; }
+
+/* Celebration keeps burgundy accents; mourning uses a calm charcoal palette. */
+html[data-tone="mourning"] {
+  --accent: #111111;
+  --accent-hover: #000000;
+  --accent-soft: #ececea;
+  --accent-ink: #fafafa;
+  --gold: #3a3a38;
+  --gold-soft: #ececea;
+  --gold-ink: #2c2c2a;
+  --danger: #4a4a48;
+  --danger-soft: #ececea;
+  --warn: #3a3a38;
+  --warn-soft: #ececea;
+  --bg: #ececea;
+  --guest-bg: #ececea;
+}
+html[data-tone="mourning"] {
+  background-image: linear-gradient(180deg, #ececea 0%, #f4f4f2 38%, #ffffff 100%);
+}
+html[data-tone="mourning"] body::after {
+  border-right-color: rgba(17, 17, 17, 0.16);
+  border-bottom-color: rgba(17, 17, 17, 0.1);
+}
+html[data-tone="celebration"] {
+  --gold: #6c1d2c;
+  --gold-soft: #f6edef;
+  --gold-ink: #6c1d2c;
+}
