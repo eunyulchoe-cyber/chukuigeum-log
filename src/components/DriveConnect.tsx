@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { disconnectDrive, getDriveStatus, registerEvent, startGoogleOAuth } from "../lib/cloud";
+import { DRIVE_TEST_USER_HINT, copyForType, driveOauthMessage } from "../lib/copy";
 import { ensureHost, refreshHostStatus } from "../lib/host";
-import { copyForType } from "../lib/copy";
 import type { EventRecord } from "../lib/types";
 
 type Props = {
@@ -10,6 +11,8 @@ type Props = {
 };
 
 export function DriveConnect({ event, returnPath }: Props) {
+  const [search] = useSearchParams();
+  const nav = useNavigate();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [email, setEmail] = useState<string | null>(null);
@@ -38,6 +41,18 @@ export function DriveConnect({ event, returnPath }: Props) {
   }
 
   useEffect(() => {
+    const code = search.get("drive") || (search.get("ok") === "0" ? search.get("error") : null);
+    const ok = search.get("drive") === "ok" || search.get("ok") === "1";
+    if (ok || code) {
+      const msg = ok ? null : driveOauthMessage(code);
+      if (msg) setNote(msg);
+      const next = new URLSearchParams(search);
+      next.delete("drive");
+      next.delete("ok");
+      next.delete("error");
+      const qs = next.toString();
+      nav(`${window.location.hash.split("?")[0].replace(/^#/, "")}${qs ? `?${qs}` : ""}`, { replace: true });
+    }
     void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.id, event.date]);
@@ -92,6 +107,11 @@ export function DriveConnect({ event, returnPath }: Props) {
         </div>
       )}
       {note ? <div className="callout warn" style={{ textAlign: "left" }}>{note}</div> : null}
+      {!connected && configured ? (
+        <p className="faint" style={{ margin: "0 0 8px", textAlign: "left", fontSize: 13 }}>
+          {DRIVE_TEST_USER_HINT}
+        </p>
+      ) : null}
       <div className="row">
         {connected ? (
           <button className="btn" disabled={busy} onClick={() => void disconnect()}>

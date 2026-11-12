@@ -189,7 +189,7 @@ async function oauthStart(req: Request, ip: string): Promise<Response> {
   }
   if (returnPath && !returnPath.startsWith("#/")) returnPath = undefined;
   const state = randomToken("", 24);
-  const verifier = randomToken("", 32);
+  const verifier = randomToken("", 64);
   const challengeBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
   const challenge = btoa(String.fromCharCode(...new Uint8Array(challengeBuf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   const { error } = await auth.db.from("oauth_states").insert({
@@ -208,12 +208,19 @@ async function oauthCallback(req: Request, _ip: string): Promise<Response> {
   const err = url.searchParams.get("error");
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (err) return redirectToApp({ ok: "0", error: "denied" });
-  if (!code || !state) return redirectToApp({ ok: "0", error: "missing" });
   const db = adminClient();
-  const { data: st } = await db.from("oauth_states").select("*").eq("state", state).maybeSingle();
+  let st: { host_id: string; code_verifier: string; return_path: string | null; created_at: string } | null = null;
+  if (state) {
+    const found = await db.from("oauth_states").select("*").eq("state", state).maybeSingle();
+    st = (found.data as typeof st) ?? null;
+    if (st) await db.from("oauth_states").delete().eq("state", state);
+  }
+  if (err) {
+    const mapped = err === "access_denied" ? "access_denied" : "denied";
+    return redirectToApp({ ok: "0", error: mapped }, st?.return_path);
+  }
+  if (!code || !state) return redirectToApp({ ok: "0", error: "missing" }, st?.return_path);
   if (!st) return redirectToApp({ ok: "0", error: "state" });
-  await db.from("oauth_states").delete().eq("state", state);
   // 20 min expiry
   if (new Date(st.created_at).getTime() < Date.now() - 20 * 60 * 1000) {
     return redirectToApp({ ok: "0", error: "expired" }, st.return_path);

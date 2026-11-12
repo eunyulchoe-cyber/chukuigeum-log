@@ -198,3 +198,25 @@ export function brandMonogram(name?: string | null, type?: string | null): strin
     .filter((s) => s && !skip.test(s) && s !== "고");
   return (parts[0] || name).charAt(0) || fallback;
 }
+
+export const DRIVE_TEST_USER_HINT =
+  "연결하는 구글 계정이 Google Cloud Console OAuth 동의 화면의 테스트 사용자로 등록되어 있어야 합니다. 테스트 모드에서는 등록된 계정만 연결할 수 있습니다.";
+
+const DRIVE_OAUTH_ERRORS: Record<string, string> = {
+  access_denied:
+    "이 구글 계정은 아직 테스트 사용자로 등록되어 있지 않거나, 연결이 취소되었습니다. Google Cloud Console → API 및 서비스 → OAuth 동의 화면 → 테스트 사용자에 지금 쓰신 구글 계정을 추가한 뒤, 잠시 기다렸다가 다시 연결해 주세요.",
+  denied:
+    "이 구글 계정은 아직 테스트 사용자로 등록되어 있지 않거나, 연결이 취소되었습니다. Google Cloud Console의 테스트 사용자 목록을 확인한 뒤 다시 시도해 주세요.",
+  missing: "구글 인증 응답이 올바르지 않습니다. 이 페이지에서 다시 연결해 주세요.",
+  state: "인증 세션을 확인할 수 없습니다. 이 페이지에서 다시 연결해 주세요.",
+  expired: "인증 유효 시간이 지났습니다. 다시 연결해 주세요.",
+  no_refresh: "구글이 재연결 권한을 주지 않았습니다. 구글 계정 권한을 해제한 뒤 다시 연결해 주세요.",
+  exchange: "구글 인증 토큰을 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  save: "연결 정보를 저장하지 못했습니다. 다시 시도해 주세요.",
+  fail: "구글 드라이브 연결에 실패했습니다. 다시 시도해 주세요.",
+};
+
+export function driveOauthMessage(code?: string | null): string | null {
+  if (!code || code === "ok") return null;
+  return DRIVE_OAUTH_ERRORS[code] ?? DRIVE_OAUTH_ERRORS.fail;
+}
