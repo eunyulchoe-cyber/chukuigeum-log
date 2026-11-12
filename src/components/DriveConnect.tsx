@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { disconnectDrive, getDriveStatus, registerEvent, startGoogleOAuth } from "../lib/cloud";
 import { ensureHost, refreshHostStatus } from "../lib/host";
+import { copyForType } from "../lib/copy";
 import type { EventRecord } from "../lib/types";
 
 type Props = {
@@ -70,12 +71,14 @@ export function DriveConnect({ event, returnPath }: Props) {
     }
   }
 
+  const c = copyForType(event.type);
+
   return (
     <section className="card drive-card">
-      <div className="kicker">손님 영상편지</div>
+      <div className="kicker">{c.driveKicker}</div>
       <h2 className="h3" style={{ margin: "4px 0 8px" }}>구글 드라이브 연결</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        손님이 QR로 찍은 영상은 주최자님의 구글 드라이브에 바로 저장됩니다. 이름과 축의금 목록은 이 태블릿 밖으로 나가지 않습니다.
+        {c.driveBlurb}
       </p>
       {connected ? (
         <div className="callout ok" style={{ textAlign: "left" }}>
