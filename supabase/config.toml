@@ -1,0 +1,38 @@
+project_id = "foimbsbpgvcftjxkxiur"
+
+[functions.host-bootstrap]
+verify_jwt = false
+
+[functions.drive-status]
+verify_jwt = false
+
+[functions.google-oauth-start]
+verify_jwt = false
+
+[functions.google-oauth-callback]
+verify_jwt = false
+
+[functions.event-register]
+verify_jwt = false
+
+[functions.token-issue]
+verify_jwt = false
+
+[functions.upload-init]
+verify_jwt = false
+
+[functions.upload-complete]
+verify_jwt = false
+
+[functions.event-videos]
+verify_jwt = false
+
+[functions.video-ticket]
+verify_jwt = false
+
+[functions.video-media]
+verify_jwt = false
+
+[functions.drive-disconnect]
+verify_jwt = false
+
