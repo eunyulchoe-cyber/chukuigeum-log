@@ -74,19 +74,16 @@ console.log("host-bootstrap reuse ok");
 
 const status = await call("drive-status", { body: {}, hostSecret, expect: 200 });
 assert.equal(status.data.googleConnected, false);
-assert.equal(status.data.googleConfigured, false);
-assert.ok(status.data.oauthRedirectUri === null || typeof status.data.oauthRedirectUri === "string");
-console.log("drive-status ok, googleConfigured=false");
+assert.equal(status.data.googleConfigured, true);
+assert.ok(typeof status.data.oauthRedirectUri === "string");
+assert.equal(status.data.oauthRedirectUri, `${base}/functions/v1/google-oauth-callback`);
+console.log("drive-status ok, googleConfigured=true");
 
-const oauth = await call("google-oauth-start", { body: { returnPath: "#/e/test/admin" }, hostSecret, expect: 503 });
-assert.equal(oauth.data.ok, false);
-assert.match(String(oauth.data.error), /구글/);
-assert.equal(oauth.data.code, "google_not_configured");
-assert.equal(
-  oauth.data.redirectUri,
-  `${base}/functions/v1/google-oauth-callback`,
-);
-console.log("oauth-start correctly blocked until Google client is set");
+const oauth = await call("google-oauth-start", { body: { returnPath: "#/e/test/admin" }, hostSecret, expect: 200 });
+assert.equal(oauth.data.ok, true);
+assert.ok(typeof oauth.data.url === "string");
+assert.match(oauth.data.url, /^https:\/\/accounts\.google\.com\//);
+console.log("oauth-start returns a Google authorize URL");
 
 const eventId = "evt_" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 const ev = await call("event-register", {

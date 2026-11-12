@@ -53,8 +53,10 @@ assert.equal(logic.pickAllowedOrigin("https://evil.example"), null);
 assert.equal(logic.pickAllowedOrigin("http://localhost:5173"), "http://localhost:5173");
 
 const label = logic.sanitizeFolderLabel("김민준 / 김서연 *결혼식*", "abc");
-assert.match(label, /축의금 로그/);
+assert.equal(label, "김민준 김서연 결혼식");
+assert.equal(logic.driveFolderPath(label), "마음장부/김민준 김서연 결혼식");
 assert.doesNotMatch(label, /[\\/:*?"<>|]/);
+assert.equal(logic.fileNameForGuest("guest-1", "video/webm"), "영상-guest-1.webm");
 
 const hex = await logic.sha256Hex("chg_up_test");
 assert.equal(hex.length, 64);
