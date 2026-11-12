@@ -38,3 +38,6 @@ supabase/.temp/
 shots/
 chukuigeum-app.zip
 *.log
+
+.tmp-copy-test/
+

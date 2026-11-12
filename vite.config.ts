@@ -28,8 +28,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["fonts/PretendardVariable.woff2", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-180.png", "icons/icon.svg"],
       manifest: {
-        name: "축의금 로그",
-        short_name: "축의금 로그",
+        name: "마음장부",
+        short_name: "마음장부",
         description: "경조사 축의금·부의금 접수 기록",
         lang: "ko",
         theme_color: "#111111",
