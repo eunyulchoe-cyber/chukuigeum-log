@@ -12,6 +12,7 @@ import { issueUploadToken, listEventVideos, registerEvent } from "../lib/cloud";
 import { loadHost } from "../lib/host";
 import { newId } from "../lib/crypto";
 import { getEvent, getGuest, listGuests, saveGuest, saveVideo, deleteGuest } from "../lib/db";
+import { appendCopyQuery, copyForType, typeLabel, useAppTone } from "../lib/copy";
 import { eventMonogram, formatDate, formatWon, formatMan, nowIso } from "../lib/format";
 import { RECENT_LIMIT, type EventRecord, type GuestRecord } from "../lib/types";
 
@@ -32,6 +33,8 @@ export function Reception() {
   const [undo, setUndo] = useState<{ id: string; label: string; left: number } | null>(null);
   const [toast, setToast] = useState("");
   const [recording, setRecording] = useState(false);
+  const copy = copyForType(event?.type);
+  useAppTone(event?.type === "부의" ? "mourning" : "celebration");
 
   const reload = useCallback(async () => {
     const e = await getEvent(eventId);
@@ -74,18 +77,21 @@ export function Reception() {
     }
     let cancelled = false;
     const base = new URL(import.meta.env.BASE_URL, location.href).href;
-    const fallback = `${base}#/g/${eventId}/${last.id}`;
+    const evForQr = event;
+    const fallback = evForQr
+      ? appendCopyQuery(`${base}#/g/${eventId}/${last.id}`, evForQr.type, evForQr.name)
+      : `${base}#/g/${eventId}/${last.id}`;
     const ink = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#111111";
     const paper = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#ffffff";
     void (async () => {
       let url = fallback;
       try {
-        const ev = await getEvent(eventId);
+        const ev = evForQr ?? await getEvent(eventId);
         const host = await loadHost();
         if (ev && host?.hostSecret && host.googleConnected) {
           await registerEvent(host.hostSecret, { id: ev.id, date: ev.date, name: ev.name });
           const tok = await issueUploadToken(host.hostSecret, eventId, last.id);
-          url = tok.uploadUrl;
+          url = appendCopyQuery(tok.uploadUrl, ev.type, ev.name);
         }
       } catch {
         url = fallback;
@@ -96,7 +102,7 @@ export function Reception() {
     return () => {
       cancelled = true;
     };
-  }, [lastSavedId, guests, eventId]);
+  }, [lastSavedId, guests, eventId, event]);
 
   // Pull remote videos when a server is present
   useEffect(() => {
@@ -249,14 +255,14 @@ export function Reception() {
       createdAt: nowIso(),
     });
     setRecording(false);
-    setToast("영상편지를 이 기록에 붙였습니다.");
+    setToast(copy.videoAttachedToast);
     await reload();
   }
 
   if (!event) {
     return (
       <div className="app-shell muted">
-        <Atmosphere mark="축" />
+        <Atmosphere mark="마" />
         행사를 불러오는 중…
       </div>
     );
@@ -270,7 +276,7 @@ export function Reception() {
       <header className="topbar">
         <div>
           <div className="kicker">
-            {event.type} · {formatDate(event.date)} · 총합계는 이 화면에 보이지 않습니다
+            {copy.receptionTitle} · {typeLabel(event.type)} · {formatDate(event.date)} · 총합계는 이 화면에 보이지 않습니다
           </div>
           <h1 className="h2">{event.name}</h1>
         </div>
@@ -385,7 +391,7 @@ export function Reception() {
 
         <aside className="stack">
           <section className="card">
-            <div className="kicker">오늘 접수 · 최근 {RECENT_LIMIT}건만 여기서 수정</div>
+            <div className="kicker">{copy.todayReception} · 최근 {RECENT_LIMIT}건만 여기서 수정</div>
             <div className="row" style={{ alignItems: "end" }}>
               <h2 className="h1" style={{ fontVariantNumeric: "tabular-nums" }}>
                 {guests.length}건
@@ -398,8 +404,8 @@ export function Reception() {
                   <tr>
                     <th>이름</th>
                     <th>관계</th>
-                    <th>금액</th>
-                    <th>영상</th>
+                    <th>{copy.amountName}</th>
+                    <th>{copy.videoShort}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -407,7 +413,7 @@ export function Reception() {
                   {recent.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="muted">
-                        아직 최근 접수가 없습니다.
+                        {copy.noRecent}
                       </td>
                     </tr>
                   ) : (
@@ -419,7 +425,7 @@ export function Reception() {
                         </td>
                         <td>{g.relation}</td>
                         <td className="num">{formatWon(g.amount)}</td>
-                        <td>{g.hasVideo ? <span className="pill gold">영상</span> : "없음"}</td>
+                        <td>{g.hasVideo ? <span className="pill gold">{copy.videoShort}</span> : "없음"}</td>
                         <td>
                           <button type="button" className="btn btn-ghost" onClick={() => fillEdit(g)}>
                             수정
@@ -440,14 +446,15 @@ export function Reception() {
             <section>
               <QrCard
                 dataUrl={qrUrl}
-                title={`${last.name} 님 영상편지 QR`}
-                caption="저장이 끝난 뒤 이 손님용 주소입니다. 앱을 설치하지 않아도 됩니다. 행사 당일에만 유효합니다. 다른 폰에서 올리려면 이 앱이 서버와 함께 열려 있어야 합니다."
+                title={copy.videoQrTitle(last.name)}
+                caption={copy.videoQrCaption}
+                alt={copy.videoQrAlt}
               >
                 <div className="row" style={{ marginTop: 10 }}>
                   <button type="button" className="btn btn-quiet" onClick={() => setRecording(true)}>
-                    태블릿으로 촬영
+                    {copy.tabletRecord}
                   </button>
-                  {last.hasVideo ? <span className="pill gold">영상 있음</span> : null}
+                  {last.hasVideo ? <span className="pill gold">{copy.videoHas}</span> : null}
                 </div>
               </QrCard>
             </section>
@@ -463,7 +470,7 @@ export function Reception() {
       {toast ? <Toast text={toast} onDone={() => setToast("")} /> : null}
       {recording && last ? (
         <RecordModal
-          title={`${last.name} 님 영상편지`}
+          title={copy.recordModalTitle(last.name)}
           onCancel={() => setRecording(false)}
           onSave={(blob, mime) => void storeTabletVideo(blob, mime)}
         />

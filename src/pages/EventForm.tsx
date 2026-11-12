@@ -5,10 +5,10 @@ import { DriveConnect } from "../components/DriveConnect";
 import { PinPad } from "../components/PinPad";
 import { hashPin, newId } from "../lib/crypto";
 import { getEvent, saveEvent } from "../lib/db";
+import { copyForType, defaultRelations, EVENT_TYPE_META, sameList, useAppTone } from "../lib/copy";
 import { eventMonogram, nowIso, todaySeoul } from "../lib/format";
 import {
   DEFAULT_AMOUNTS,
-  DEFAULT_RELATIONS,
   EVENT_TYPES,
   type EventRecord,
   type EventType,
@@ -23,12 +23,14 @@ export function EventForm() {
   const [type, setType] = useState<EventType>("결혼");
   const [date, setDate] = useState(todaySeoul());
   const [amounts, setAmounts] = useState(DEFAULT_AMOUNTS.map((n) => String(n / 10000)));
-  const [relations, setRelations] = useState(DEFAULT_RELATIONS.slice());
+  const [relations, setRelations] = useState(defaultRelations("결혼"));
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
   const [stage, setStage] = useState<"form" | "pin" | "pin2">("form");
   const [error, setError] = useState("");
   const [existing, setExisting] = useState<EventRecord | null>(null);
+  const copy = copyForType(type);
+  useAppTone(type === "부의" ? "mourning" : "celebration");
 
   useEffect(() => {
     if (!eventId) return;
@@ -119,7 +121,7 @@ export function EventForm() {
   if (!loaded) {
     return (
       <div className="app-shell muted">
-        <Atmosphere mark="축" />
+        <Atmosphere mark="마" />
         불러오는 중…
       </div>
     );
@@ -169,14 +171,22 @@ export function EventForm() {
       <div className="stack" style={{ marginTop: 24 }}>
         <div className="field">
           <div className="label">행사 이름</div>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 김민준 · 김서연 결혼식" />
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={copy.eventNamePlaceholder} />
         </div>
         <div className="field">
           <div className="label">종류</div>
           <div className="chip-row">
             {EVENT_TYPES.map((t) => (
-              <button type="button" key={t} className={`chip${type === t ? " on" : ""}`} onClick={() => setType(t)}>
-                {t}
+              <button
+                type="button"
+                key={t}
+                className={`chip${type === t ? " on" : ""}`}
+                onClick={() => {
+                  setType(t);
+                  setRelations((prev) => (sameList(prev, defaultRelations(type)) ? defaultRelations(t) : prev));
+                }}
+              >
+                {EVENT_TYPE_META[t].label}
               </button>
             ))}
           </div>

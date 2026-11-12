@@ -9,6 +9,7 @@ import { getVideoMediaUrl, listEventVideos } from "../lib/cloud";
 import { exportBackup, getEvent, getVideoForGuest, importBackup, listGuests, deleteGuest, saveGuest, wipeEvent } from "../lib/db";
 import { loadHost } from "../lib/host";
 import { downloadWorkbook } from "../lib/excel";
+import { copyForType, typeLabel, useAppTone } from "../lib/copy";
 import { eventMonogram, formatDate, formatDateTime, formatWon } from "../lib/format";
 import type { BackupFile, EventRecord, GuestRecord } from "../lib/types";
 
@@ -25,6 +26,8 @@ export function Admin() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [playing, setPlaying] = useState<{ name: string; url: string } | null>(null);
+  const copy = copyForType(event?.type);
+  useAppTone(event?.type === "부의" ? "mourning" : "celebration");
 
   const reload = useCallback(async () => {
     const e = await getEvent(eventId);
@@ -140,7 +143,7 @@ export function Admin() {
   if (!event) {
     return (
       <div className="app-shell muted">
-        <Atmosphere mark="축" />
+        <Atmosphere mark="마" />
         불러오는 중…
       </div>
     );
@@ -194,7 +197,7 @@ export function Admin() {
       <Atmosphere mark={mark} />
       <header className="topbar">
         <div>
-          <div className="kicker">관리자 · {event.type} · {formatDate(event.date)}</div>
+          <div className="kicker">관리자 · {copy.receptionTitle} · {typeLabel(event.type)} · {formatDate(event.date)}</div>
           <h1 className="h2">{event.name}</h1>
         </div>
         <div className="row">
@@ -273,10 +276,10 @@ export function Admin() {
             <tr>
               <th>이름</th>
               <th>관계</th>
-              <th>금액</th>
+              <th>{copy.amountName}</th>
               <th>메모</th>
               <th>시각</th>
-              <th>영상</th>
+              <th>{copy.videoShort}</th>
               <th>이력</th>
               <th></th>
             </tr>
@@ -285,7 +288,7 @@ export function Admin() {
             {guests.length === 0 ? (
               <tr>
                 <td colSpan={8} className="muted">
-                  아직 접수가 없습니다.
+                  {copy.noGuests}
                 </td>
               </tr>
             ) : (
@@ -339,7 +342,7 @@ export function Admin() {
       {playing ? (
         <div className="modal-back" onClick={() => { URL.revokeObjectURL(playing.url); setPlaying(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="kicker">영상편지</div>
+            <div className="kicker">{copy.videoLong}</div>
             <h2 className="h2" style={{ marginBottom: 12 }}>{playing.name}</h2>
             <video src={playing.url} controls autoPlay playsInline style={{ width: "100%", borderRadius: 12, background: "#111" }} />
             <button className="btn" style={{ marginTop: 12 }} onClick={() => { URL.revokeObjectURL(playing.url); setPlaying(null); }}>
