@@ -75,7 +75,7 @@ app.get(/.*/, (_req, res) => {
 
 const port = Number(process.env.PORT || 8787);
 app.listen(port, "0.0.0.0", () => {
-  console.log(`축의금 로그 server http://0.0.0.0:${port}`);
+  console.log(`마음장부 server http://0.0.0.0:${port}`);
 });
 
 function safe(id) {
