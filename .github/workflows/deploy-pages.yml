@@ -1,0 +1,105 @@
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore binary assets
+        run: |
+          set -euo pipefail
+          python3 << 'PY'
+          from pathlib import Path
+          import base64, sys
+          payload = Path("_payload")
+          if payload.exists():
+              for p in sorted(payload.rglob("*.b64")):
+                  rel = p.relative_to(payload)
+                  if rel.as_posix().startswith("fonts/part-"):
+                      continue
+                  dest = Path(rel.as_posix()[:-4])  # strip .b64
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  dest.write_bytes(base64.b64decode(p.read_text()))
+                  print("decoded", dest, dest.stat().st_size)
+          font_dir = payload / "fonts"
+          parts = sorted(font_dir.glob("part-*.b64")) if font_dir.exists() else []
+          if parts:
+              dest = Path("fonts/PretendardVariable.woff2")
+              dest.parent.mkdir(parents=True, exist_ok=True)
+              data = b"".join(base64.b64decode(p.read_text()) for p in parts)
+              dest.write_bytes(data)
+              print("decoded", dest, dest.stat().st_size)
+          PY
+          if [ ! -s fonts/PretendardVariable.woff2 ]; then
+            mkdir -p fonts
+            curl -fsSL -o fonts/PretendardVariable.woff2 \
+              "https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2"
+          fi
+          ls -la fonts icons textures
+      - name: Assemble site
+        run: |
+          python3 << 'PY'
+          import shutil
+          from pathlib import Path
+          src = Path(".")
+          dest = Path("site")
+          if dest.exists():
+              shutil.rmtree(dest)
+          dest.mkdir()
+          skip = {".git", ".github", "_payload", "site"}
+          for p in src.iterdir():
+              if p.name in skip:
+                  continue
+              target = dest / p.name
+              if p.is_dir():
+                  shutil.copytree(p, target)
+              else:
+                  shutil.copy2(p, target)
+          for p in sorted(dest.rglob("*")):
+              if p.is_file():
+                  print(f"{p.stat().st_size:8d}  {p}")
+          PY
+      - name: Enable GitHub Pages
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.repos.createPagesSite({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                build_type: 'workflow',
+              });
+              console.log('Pages site created');
+            } catch (error) {
+              if (error.status !== 409 && error.status !== 422) throw error;
+              console.log('Pages create skipped:', error.status, error.message);
+              try {
+                await github.rest.repos.updateInformationAboutPagesSite({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  build_type: 'workflow',
+                });
+                console.log('Pages updated to workflow');
+              } catch (e2) {
+                console.log('Pages update skipped:', e2.status, e2.message);
+              }
+            }
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
