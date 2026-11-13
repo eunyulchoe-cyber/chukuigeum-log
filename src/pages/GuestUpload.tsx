@@ -4,7 +4,7 @@ import { Atmosphere } from "../components/Atmosphere";
 import { CamSwitch } from "../components/CamSwitch";
 import { uploadRemoteVideo, serverAvailable } from "../lib/api";
 import { completeGuestUpload, initGuestUpload, putResumable } from "../lib/cloud";
-import { cameraErrorMessage, countVideoInputs, openCamera, stopStream, type Facing } from "../lib/camera";
+import { beginRecording, cameraErrorMessage, countVideoInputs, openCamera, screenOrient, stopStream, type Facing } from "../lib/camera";
 import { newId } from "../lib/crypto";
 import { getEvent, getGuest, saveVideo } from "../lib/db";
 import { copyFor, parseToneParam, useAppTone } from "../lib/copy";
@@ -23,12 +23,16 @@ export function GuestUpload() {
   const [search] = useSearchParams();
   const videoRef = useRef<HTMLVideoElement>(null);
   const recRef = useRef<MediaRecorder | null>(null);
+  const stopAuxRef = useRef<() => void>(() => undefined);
   const chunks = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const phaseRef = useRef<"idle" | "recording" | "review" | "sending" | "sent" | "error">("idle");
   const facingRef = useRef<Facing>("user");
+  const startingRef = useRef(false);
   const [facing, setFacing] = useState<Facing>("user");
   const [cameraCount, setCameraCount] = useState(0);
   const [hasStream, setHasStream] = useState(false);
+  const [starting, setStarting] = useState(true);
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [guest, setGuest] = useState<GuestRecord | null>(null);
   const [missing, setMissing] = useState(false);
@@ -42,6 +46,11 @@ export function GuestUpload() {
   const [hasServer, setHasServer] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploadToken] = useState(token);
+  function setPhaseBoth(next: typeof phase) {
+    phaseRef.current = next;
+    setPhase(next);
+  }
+
   const tone = event ? (event.type === "부의" ? "mourning" : "celebration") : parseToneParam(search.get("tone"));
   const copy = copyFor(tone);
   const displayName = event?.name || search.get("name") || "";
@@ -86,6 +95,21 @@ export function GuestUpload() {
 
   useEffect(() => () => {
     stopStream(streamRef.current);
+    stopAuxRef.current();
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(orientation: portrait)");
+    const onChange = () => {
+      if (phaseRef.current === "recording" || startingRef.current) return;
+      if (!streamRef.current) return;
+      void startStream(facingRef.current).catch((e) => {
+        setNote(cameraErrorMessage(e));
+      });
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function attach(stream: MediaStream) {
@@ -97,83 +121,96 @@ export function GuestUpload() {
     }
   }
 
-  async function startStream(next: Facing) {
-    const stream = await openCamera(next);
-    stopStream(streamRef.current);
-    await attach(stream);
-    facingRef.current = next;
-    setFacing(next);
-    setCameraCount(await countVideoInputs());
-    return stream;
+  async function startStream(next: Facing): Promise<MediaStream | undefined> {
+    if (startingRef.current) return streamRef.current ?? undefined;
+    startingRef.current = true;
+    setStarting(true);
+    const prev = streamRef.current;
+    streamRef.current = null;
+    setHasStream(false);
+    try {
+      const stream = await openCamera(next, prev, screenOrient());
+      await attach(stream);
+      facingRef.current = next;
+      setFacing(next);
+      setCameraCount(await countVideoInputs());
+      return stream;
+    } finally {
+      startingRef.current = false;
+      setStarting(false);
+    }
   }
 
   useEffect(() => {
     let stopped = false;
     void (async () => {
       try {
-        const stream = await openCamera("user");
+        await startStream("user");
         if (stopped) {
-          stopStream(stream);
-          return;
+          stopStream(streamRef.current);
+          streamRef.current = null;
         }
-        await attach(stream);
-        setCameraCount(await countVideoInputs());
       } catch (e) {
         if (!stopped) {
           setNote(cameraErrorMessage(e));
-          setPhase("error");
+          setPhaseBoth("error");
         }
       }
     })();
     return () => {
       stopped = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function switchFacing() {
-    if (phase === "recording") return;
+    if (phase === "recording" || startingRef.current) return;
     const next: Facing = facingRef.current === "user" ? "environment" : "user";
     try {
       await startStream(next);
       setNote("");
-      if (phase === "error") setPhase("idle");
+      if (phase === "error") setPhaseBoth("idle");
     } catch (e) {
       setNote(cameraErrorMessage(e));
     }
   }
 
-  async function ensureStream(): Promise<MediaStream> {
+  async function ensureStream(): Promise<MediaStream | undefined> {
     if (streamRef.current) return streamRef.current;
     return startStream(facingRef.current);
   }
 
   async function start() {
+    if (startingRef.current || phase === "recording") return;
     try {
       const stream = await ensureStream();
+      if (!stream) return;
       chunks.current = [];
       const type = pickMime();
-      const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
-      setMime(rec.mimeType || type || "video/webm");
-      rec.ondataavailable = (e) => {
+      const { recorder, stopAux } = beginRecording(videoRef.current, stream, type);
+      stopAuxRef.current = stopAux;
+      setMime(recorder.mimeType || type || "video/webm");
+      recorder.ondataavailable = (e) => {
         if (e.data.size) chunks.current.push(e.data);
       };
-      rec.onstop = () => {
-        const b = new Blob(chunks.current, { type: rec.mimeType || mime });
+      recorder.onstop = () => {
+        stopAuxRef.current();
+        const b = new Blob(chunks.current, { type: recorder.mimeType || mime });
         setBlob(b);
         const url = URL.createObjectURL(b);
         setPreview((old) => {
           if (old) URL.revokeObjectURL(old);
           return url;
         });
-        setPhase("review");
+        setPhaseBoth("review");
       };
-      recRef.current = rec;
-      rec.start(200);
+      recRef.current = recorder;
+      recorder.start(200);
       setSec(0);
-      setPhase("recording");
+      setPhaseBoth("recording");
     } catch (e) {
       setNote(cameraErrorMessage(e));
-      setPhase("error");
+      setPhaseBoth("error");
     }
   }
 
@@ -183,7 +220,7 @@ export function GuestUpload() {
 
   async function send() {
     if (!blob) return;
-    setPhase("sending");
+    setPhaseBoth("sending");
     setProgress(0);
     setNote("");
     let localOk = false;
@@ -219,7 +256,7 @@ export function GuestUpload() {
       remoteOk = await uploadRemoteVideo(eventId, guestId, blob);
     }
     if (localOk || remoteOk) {
-      setPhase("sent");
+      setPhaseBoth("sent");
       stopStream(streamRef.current);
       streamRef.current = null;
       setHasStream(false);
@@ -230,7 +267,7 @@ export function GuestUpload() {
         ? "영상을 올리지 못했습니다. 네트워크를 확인하고 다시 시도해 주세요."
         : "이 폰에는 접수 기록이 없고, 주최자의 드라이브로 보내는 코드도 없습니다. 행사 당일 QR을 다시 찍어 주세요."),
     );
-    setPhase("review");
+    setPhaseBoth("review");
   }
 
   const typeFromQuery = search.get("type") || (tone === "mourning" ? "부의" : "");
@@ -267,37 +304,47 @@ export function GuestUpload() {
 
       {phase === "idle" || phase === "error" || phase === "recording" ? (
         <>
-          <div className="preview">
+          <div className="preview cam-preview">
             <video
               ref={videoRef}
               className={facing === "user" ? "mirror" : undefined}
               muted
               playsInline
               autoPlay
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: hasStream ? "block" : "none" }}
+              style={{ display: hasStream ? "block" : "none" }}
             />
-            {!hasStream && phase !== "error" ? <span className="faint">촬영을 누르면 카메라가 열립니다</span> : null}
-            {cameraCount > 1 && hasStream ? (
-              <CamSwitch disabled={phase === "recording"} onClick={() => void switchFacing()} />
+            {!hasStream && phase !== "error" ? (
+              <span className="cam-status">{starting ? "카메라 준비 중…" : "카메라를 켜는 중입니다"}</span>
             ) : null}
           </div>
-          {phase === "recording" ? <div className="timer">{formatClock(sec)} / 1:00</div> : null}
           {note && phase === "error" ? <div className="callout warn">{note}</div> : null}
-          <button
-            type="button"
-            className={`rec-btn${phase === "recording" ? " busy" : ""}`}
-            onClick={() => (phase === "recording" ? stop() : void start())}
-            aria-label={phase === "recording" ? "촬영 끝내기" : "촬영"}
-          >
-            <i />
-          </button>
-          <div>{phase === "recording" ? "누르면 촬영이 끝납니다" : "촬영"}</div>
+          <div className="rec-dock">
+            {phase === "recording" ? <div className="timer rec-timer">{formatClock(sec)} / 1:00</div> : null}
+            <div className="rec-wrap">
+              <div className="rec-side rec-side-start">
+                {cameraCount > 1 && (hasStream || starting) ? (
+                  <CamSwitch disabled={phase === "recording" || starting} onClick={() => void switchFacing()} />
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className={`rec-btn${phase === "recording" ? " busy" : ""}`}
+                onClick={() => (phase === "recording" ? stop() : void start())}
+                disabled={starting || (phase !== "recording" && !hasStream)}
+                aria-label={phase === "recording" ? "촬영 끝내기" : "촬영"}
+              >
+                <i />
+              </button>
+              <div className="rec-side rec-side-end" />
+            </div>
+            <div className="rec-label">{phase === "recording" ? "누르면 촬영이 끝납니다" : starting ? "준비 중…" : "촬영"}</div>
+          </div>
         </>
       ) : null}
 
       {phase === "review" || phase === "sending" ? (
         <>
-          <div className="preview">{preview ? <video src={preview} controls playsInline /> : null}</div>
+          <div className="preview cam-preview">{preview ? <video src={preview} controls playsInline /> : null}</div>
           {note ? <div className="callout warn" style={{ textAlign: "left" }}>{note}</div> : null}
           {phase === "sending" ? (
             <div className="upload-progress" aria-live="polite">
@@ -318,7 +365,7 @@ export function GuestUpload() {
                 });
                 setNote("");
                 setSec(0);
-                setPhase("idle");
+                setPhaseBoth("idle");
               }}
             >
               다시 찍기

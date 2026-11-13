@@ -6,17 +6,32 @@ type Props = {
 export function CamSwitch({ disabled, onClick }: Props) {
   return (
     <button type="button" className="cam-switch" aria-label="카메라 전환" disabled={disabled} onClick={onClick}>
-      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
         <path
-          d="M16.2 3.8h2.3A1.8 1.8 0 0 1 20.3 5.6V8M7.8 20.2H5.5A1.8 1.8 0 0 1 3.7 18.4V16M20.2 7.2 16.8 3.8 13.4 7.2M3.8 16.8 7.2 20.2 10.6 16.8"
+          d="M8.2 7h1.15l.55-1.05A1 1 0 0 1 10.75 5.5h2.5a1 1 0 0 1 .85.45L14.65 7H16.5A2.5 2.5 0 0 1 19 9.5v6A2.5 2.5 0 0 1 16.5 18h-9A2.5 2.5 0 0 1 5 15.5v-6A2.5 2.5 0 0 1 7.5 7H8.2z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M9.4 13.6a2.7 2.7 0 0 1 4.3-2.15M14.6 11.2l-.05 1.45-1.3-.7"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.7"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <path
+          d="M14.6 12.4a2.7 2.7 0 0 1-4.3 2.15M9.4 14.8l.05-1.45 1.3.7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
+      <span>전환</span>
     </button>
   );
 }
